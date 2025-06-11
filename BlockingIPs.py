@@ -18,6 +18,8 @@ directory = str(input("Input the directory you would like to access the ips in (
 
 clientIps = set()
 
+errors = 0
+
 # Checks all files in the folder and any of its subfolders in a recursive fashion
 for path, folders, files in os.walk(directory):
     for filename in files:
@@ -36,12 +38,19 @@ for path, folders, files in os.walk(directory):
                     if json_object["action"] == "BLOCK":
                         clientIps.add(json_object["httpRequest"]["clientIp"])
         except Exception as e:
-            print(f"Could not read {file_path}: {e}")                
+            print(f"Could not read {file_path}: {e}")
+            errors += 1
+
+if errors != 0:
+    print(str(errors) + " files could not be read")     
 
 
 
 print("The number of IPs is " + str(len(clientIps)))
-print(clientIps)
+
+print()
+
+print("The program is now running...")
 
 ipInformation = []
 
