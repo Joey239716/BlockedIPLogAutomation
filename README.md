@@ -1,6 +1,8 @@
 # AWSLogAutomation
 Automates checking the logs for which IP's were blocked
 
+Download and extract the file into VScode
+
 To run this program:
 
     1. Run this command in the terminal: pip install -r requirements.txt to install all necessary packages
