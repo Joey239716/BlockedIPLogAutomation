@@ -14,7 +14,20 @@ headers = {
     'Key': apiKey
 }
 
-directory = str(input("Input the directory you would like to access the ips in (copy the path of the folder and remove quotation marks): "))
+def directoryCheck():
+    directory = str(input("Input the directory you would like to access the ips in (copy the path of the folder and remove quotation marks): "))
+
+    print()
+
+    if directory[0] == '"' and directory[len(directory) - 1] == '"':
+        print("Please remove the quotation marks at the beginning and end of the directory path and try again!")
+        print()
+        directoryCheck()
+    else:
+        return directory 
+
+directory = directoryCheck()
+
 
 clientIps = set()
 
