@@ -2,38 +2,69 @@ import requests
 import json
 import os
 from dotenv import load_dotenv
+import gzip
+import shutil
 
 load_dotenv()
 
 url = 'https://api.abuseipdb.com/api/v2/check'
 apiKey = os.getenv("API_KEY")
-print(apiKey)
 
 headers = {
     'Accept': 'application/json',
     'Key': apiKey
 }
 
-def directoryCheck():
-    directory = str(input("Input the directory you would like to access the ips in (copy the path of the folder and remove quotation marks): "))
-
-    print()
-
-    if directory[0] == '"' and directory[len(directory) - 1] == '"':
-        print("Please remove the quotation marks at the beginning and end of the directory path and try again!")
-        print()
-        directoryCheck()
-    else:
-        return directory 
-
-directory = directoryCheck()
-
+directory = str(input("Input the directory you would like to access the ips in (copy the path of the folder and remove quotation marks): "))
 
 clientIps = set()
 
-errors = 0
+#Loading Bar
+def printProgressBar (iteration, total, prefix = '', suffix = '', decimals = 1, length = 100, fill = '█', printEnd = "\r"):
+    """
+    Call in a loop to create terminal progress bar
+    @params:
+        iteration   - Required  : current iteration (Int)
+        total       - Required  : total iterations (Int)
+        prefix      - Optional  : prefix string (Str)
+        suffix      - Optional  : suffix string (Str)
+        decimals    - Optional  : positive number of decimals in percent complete (Int)
+        length      - Optional  : character length of bar (Int)
+        fill        - Optional  : bar fill character (Str)
+        printEnd    - Optional  : end character (e.g. "\r", "\r\n") (Str)
+    """
+    percent = ("{0:." + str(decimals) + "f}").format(100 * (iteration / float(total)))
+    filledLength = int(length * iteration // total)
+    bar = fill * filledLength + '-' * (length - filledLength)
+    print(f'\r{prefix} |{bar}| {percent}% {suffix}', end = printEnd)
+    # Print New Line on Complete
+    if iteration == total: 
+        print()
 
-# Checks all files in the folder and any of its subfolders in a recursive fashion
+
+def unzipGz(root_folder):
+    for dirpath, _, filenames in os.walk(root_folder):
+        for filename in filenames:
+            if filename.endswith(".gz"):
+                gz_path = os.path.join(dirpath, filename)
+                output_path = os.path.join(dirpath, filename[:-3])  # Remove '.gz' extension
+
+                # Skip if file already exists
+                if os.path.exists(output_path):
+                    print(f"Skipped (already exists): {output_path}")
+                    continue
+
+                try:
+                    with gzip.open(gz_path, 'rb') as f_in:
+                        with open(output_path, 'wb') as f_out:
+                            shutil.copyfileobj(f_in, f_out)
+                    print(f"Extracted: {gz_path} -> {output_path}")
+                except Exception as e:
+                    print(f"Error extracting {gz_path}: {e}")
+unzipGz(directory)
+
+
+# Checks all files in the folder and any of its subfolders in a recursive fashion and looks for all Blocked IPS
 for path, folders, files in os.walk(directory):
     for filename in files:
         if filename.lower().endswith((".zip", ".gz", ".tar", ".7z")):
@@ -51,30 +82,26 @@ for path, folders, files in os.walk(directory):
                     if json_object["action"] == "BLOCK":
                         clientIps.add(json_object["httpRequest"]["clientIp"])
         except Exception as e:
-            print(f"Could not read {file_path}: {e}")
-            errors += 1
-
-if errors != 0:
-    print(str(errors) + " files could not be read")     
+            print(f"Could not read {file_path}: {e}")                
 
 
 
 print("The number of IPs is " + str(len(clientIps)))
 
-print()
-
-print("The program is now running...")
-
 ipInformation = []
 
-shortForm = {"United States of America": "USA", "United Kingdom of Great Britain and Northern Ireland": "UK", "Korea (the Republic of)": "South Korea"}
+shortForm = {"United States of America": "USA", "United Kingdom of Great Britain and Northern Ireland": "UK", "Korea (the Republic of)": "South Korea", "Viet Nam": "Vietnam"}
 
 clientIps = list(clientIps)
 #Code that uses the API KEY, Pulls data from AbusedIp API
-for ip in clientIps:
+for idx, ip in enumerate(clientIps):
+        printProgressBar(idx, len(clientIps) - 1, prefix='Progress:', suffix='Complete', length=50)
         response = requests.request(method='GET', url=url, headers=headers, params={'ipAddress': ip, 'maxAgeInDays': '90', 'verbose': 'true'})
-
         decodedResponse = json.loads(response.text)
+
+        if "data" not in decodedResponse:
+            print(f"No data for IP: {ip} — {decodedResponse}")
+            continue  # Skip this IP if no data is returned
 
         if decodedResponse["data"]["countryName"] in shortForm:
             decodedResponse["data"]["countryName"] = shortForm[decodedResponse["data"]["countryName"]]
@@ -85,14 +112,13 @@ for ip in clientIps:
             ipInformation.append([ip, decodedResponse["data"].get("domain", "N/A"), decodedResponse["data"]["countryName"], confidenceScore])
         else:
             ipInformation.append([ip, decodedResponse["data"].get("domain", "N/A"), decodedResponse["data"]["countryName"]])
+print("")
 
-
-print(ipInformation)
+print("Blocked IPs")
 
 for i, row in enumerate(ipInformation, start=1):
     cleaned = [field if field is not None else "N/A" for field in row]
     print(" - ".join(cleaned))
-
 
 """
 Testing code
