@@ -14,25 +14,20 @@ headers = {
     'Accept': 'application/json',
     'Key': apiKey
 }
-
 directory = str(input("Input the directory you would like to access the ips in (copy the path of the folder and remove quotation marks): "))
+def checkQuotations(directory):
+    if directory[0] == '"' and directory[-1] == '"':
+        return directory[1:-1]
+    else:
+        return directory
+
+directory = checkQuotations(directory)
+
 
 clientIps = set()
 
-#Loading Bar
+#Loading Bar from Stack Overflow
 def printProgressBar (iteration, total, prefix = '', suffix = '', decimals = 1, length = 100, fill = '█', printEnd = "\r"):
-    """
-    Call in a loop to create terminal progress bar
-    @params:
-        iteration   - Required  : current iteration (Int)
-        total       - Required  : total iterations (Int)
-        prefix      - Optional  : prefix string (Str)
-        suffix      - Optional  : suffix string (Str)
-        decimals    - Optional  : positive number of decimals in percent complete (Int)
-        length      - Optional  : character length of bar (Int)
-        fill        - Optional  : bar fill character (Str)
-        printEnd    - Optional  : end character (e.g. "\r", "\r\n") (Str)
-    """
     percent = ("{0:." + str(decimals) + "f}").format(100 * (iteration / float(total)))
     filledLength = int(length * iteration // total)
     bar = fill * filledLength + '-' * (length - filledLength)
@@ -64,11 +59,15 @@ def unzipGz(root_folder):
 unzipGz(directory)
 
 
+files_read_count = 0  # Count of successfully accessed log files
+
 # Checks all files in the folder and any of its subfolders in a recursive fashion and looks for all Blocked IPS
 for path, folders, files in os.walk(directory):
     for filename in files:
-        if filename.lower().endswith((".zip", ".gz", ".tar", ".7z")):
+        # Only process files ending with .log (case insensitive)
+        if not filename.lower().endswith(".log"):
             continue
+        
         file_path = os.path.join(path, filename)
         print(f"Reading file: {file_path}")
         
@@ -81,8 +80,11 @@ for path, folders, files in os.walk(directory):
                 for json_object in data:
                     if json_object["action"] == "BLOCK":
                         clientIps.add(json_object["httpRequest"]["clientIp"])
+            files_read_count += 1  # Increment only if successfully accessed
         except Exception as e:
-            print(f"Could not read {file_path}: {e}")                
+            print(f"Could not read {file_path}: {e}")
+
+print(f"\nNumber of log files read: {files_read_count}")         
 
 
 
